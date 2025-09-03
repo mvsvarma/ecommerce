@@ -1,0 +1,208 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks: [backend]
+
+  server: # Eureka
+    build:
+      context: ./server
+    image: local/eureka-server:latest
+    container_name: eureka-server
+    environment:
+      SERVER_PORT: 8761
+      SPRING_APPLICATION_NAME: server
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "*"
+      MANAGEMENT_ENDPOINTS_WEB_BASE_PATH: /actuator
+    ports:
+      - "8761:8761"
+    networks: [backend]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  authenticationService:
+    build:
+      context: ./authenticationService
+    image: local/authentication-service:latest
+    container_name: authentication-service
+    environment:
+      SERVER_PORT: 8081
+      SPRING_APPLICATION_NAME: authenticationService
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_JWTEXPIRATIONMS: 86400000
+    ports:
+      - "8081:8081"
+    depends_on:
+      server:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    networks: [backend]
+
+  userProfile:
+    build:
+      context: ./userProfile
+    image: local/user-profile-service:latest
+    container_name: user-profile-service
+    environment:
+      SERVER_PORT: 8082
+      SPRING_APPLICATION_NAME: userProfile
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/userdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "*"
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: always
+      MANAGEMENT_ENDPOINTS_WEB_BASE_PATH: /actuator
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_JWTEXPIRATIONMS: 86400000
+    ports:
+      - "8082:8082"
+    depends_on:
+      server:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    networks: [backend]
+
+  productService:
+    build:
+      context: ./productService
+    image: local/product-service:latest
+    container_name: product-service
+    environment:
+      SERVER_PORT: 8083
+      SPRING_APPLICATION_NAME: productService
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/products_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_JWTEXPIRATIONMS: 86400000
+    ports:
+      - "8083:8083"
+    depends_on:
+      server:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    networks: [backend]
+
+  cartItemService:
+    build:
+      context: ./cartItemService
+    image: local/cart-item-service:latest
+    container_name: cart-item-service
+    environment:
+      SERVER_PORT: 8084
+      SPRING_APPLICATION_NAME: cartItemService
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/cart_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      FEIGN_CLIENT_CONFIG_DEFAULT_CONNECTTIMEOUT: 5000
+      FEIGN_CLIENT_CONFIG_DEFAULT_READTIMEOUT: 5000
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_JWTEXPIRATIONMS: 86400000
+    ports:
+      - "8084:8084"
+    depends_on:
+      server:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    networks: [backend]
+
+  addressService:
+    build:
+      context: ./addressService
+    image: local/address-service:latest
+    container_name: address-service
+    environment:
+      SERVER_PORT: 8085
+      SPRING_APPLICATION_NAME: addressService
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/address_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      FEIGN_CLIENT_CONFIG_DEFAULT_CONNECTTIMEOUT: 5000
+      FEIGN_CLIENT_CONFIG_DEFAULT_READTIMEOUT: 5000
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_JWTEXPIRATIONMS: 86400000
+    ports:
+      - "8085:8085"
+    depends_on:
+      server:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    networks: [backend]
+
+  orderService:
+    build:
+      context: ./orderService
+    image: local/order-service:latest
+    container_name: order-service
+    environment:
+      SERVER_PORT: 8086
+      SPRING_APPLICATION_NAME: orderService
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/order_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      FEIGN_CLIENT_CONFIG_DEFAULT_CONNECTTIMEOUT: 5000
+      FEIGN_CLIENT_CONFIG_DEFAULT_READTIMEOUT: 5000
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: mappings
+      MANAGEMENT_ENDPOINTS_WEB_BASE_PATH: /actuator
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_JWTEXPIRATIONMS: 86400000
+    ports:
+      - "8086:8086"
+    depends_on:
+      server:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    networks: [backend]
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  mysql_data:
